@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from app.imaging import correlation_input, estimate_shift, resize_to_width, to_gray
+from app.keyboard import Keyboard, detect_keyboard
 from app.messages import Crop
 from app.video import VideoInfo, sample_frames
 
@@ -14,6 +15,7 @@ CORRELATION_WIDTH = 480
 PREVIEW_COUNT = 6
 MAX_SAMPLES = 600
 FULL_FRAME = Crop(x=0.0, y=0.0, width=1.0, height=1.0)
+KEYBOARD_SHARE = 0.5
 
 
 @dataclass(frozen=True)
@@ -124,6 +126,19 @@ def _classify_layout(frames: list[np.ndarray]) -> str:
     return "scroll" if scrolling >= 3 and scrolling >= 0.4 * moving else "pages"
 
 
+def _keyboard_crop(keyboards: list[Keyboard], info: VideoInfo) -> Crop:
+    top = float(np.median([k.top for k in keyboards]))
+    bottom = float(np.median([k.bottom for k in keyboards]))
+    left = float(np.median([k.left for k in keyboards]))
+    right = float(np.median([k.right for k in keyboards]))
+    margin = (bottom - top) * 0.05
+    y0 = max(0.0, top - margin) / info.height
+    y1 = min(float(info.height), bottom + margin) / info.height
+    x0 = max(0.0, left - margin) / info.width
+    x1 = min(float(info.width), right + 1 + margin) / info.width
+    return Crop(x=round(x0, 4), y=round(y0, 4), width=round(x1 - x0, 4), height=round(y1 - y0, 4))
+
+
 def analyze(path: Path, info: VideoInfo, on_progress: Callable[[float], None]) -> AnalysisResult:
     duration = max(info.duration, 0.001)
     step = max(0.5, duration / MAX_SAMPLES)
@@ -132,8 +147,12 @@ def analyze(path: Path, info: VideoInfo, on_progress: Callable[[float], None]) -
     regions: list[tuple[float, float, float, float]] = []
     samples: list[np.ndarray] = []
     previews: list[bytes] = []
+    keyboards: list[Keyboard] = []
 
     for time, frame in sample_frames(path, step):
+        keyboard = detect_keyboard(frame)
+        if keyboard is not None:
+            keyboards.append(keyboard)
         gray = resize_to_width(to_gray(frame), DETECTION_WIDTH)
         staves = find_staves(gray)
         if staves:
@@ -144,6 +163,9 @@ def analyze(path: Path, info: VideoInfo, on_progress: Callable[[float], None]) -
             if ok:
                 previews.append(encoded.tobytes())
         on_progress(min(time / duration, 1.0))
+
+    if samples and len(keyboards) >= KEYBOARD_SHARE * len(samples):
+        return AnalysisResult(crop=_keyboard_crop(keyboards, info), layout="synthesia", previews=previews)
 
     crop = _suggest_crop(regions)
     cropped = []

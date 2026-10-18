@@ -5,7 +5,7 @@ FROM python:3.12-slim
 COPY --from=deno /deno /usr/local/bin/deno
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg libcairo2 fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \

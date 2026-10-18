@@ -6,4 +6,7 @@ public record ExtractNotes(
     CropMessage Crop,
     string Layout,
     double? StartSeconds,
-    double? EndSeconds);
+    double? EndSeconds,
+    string? Title,
+    double? Tempo,
+    int? BeatsPerBar);

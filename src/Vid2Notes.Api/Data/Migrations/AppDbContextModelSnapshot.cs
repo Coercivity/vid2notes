@@ -212,9 +212,21 @@ namespace Vid2Notes.Api.Data.Migrations
                     b.Property<int?>("Height")
                         .HasColumnType("integer");
 
+                    b.Property<string>("KeyName")
+                        .HasColumnType("text");
+
                     b.Property<string>("Layout")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<string>("MidiKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MusicXmlKey")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("NoteCount")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("PageCount")
                         .HasColumnType("integer");
@@ -244,6 +256,12 @@ namespace Vid2Notes.Api.Data.Migrations
                     b.Property<string>("SuggestedLayout")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<double?>("Tempo")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("TimeSignature")
+                        .HasColumnType("text");
 
                     b.Property<string>("Title")
                         .HasColumnType("text");

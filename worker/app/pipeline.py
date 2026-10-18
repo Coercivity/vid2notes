@@ -2,7 +2,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from app import analysis, extraction, pdf, video
+from app import analysis, engraving, extraction, midi, notation, pdf, synthesia, video
 from app.config import Settings
 from app.messages import AnalysisCompleted, AnalyzeVideo, ExtractionCompleted, ExtractNotes
 from app.storage import Storage
@@ -61,6 +61,9 @@ def run_extract(command: ExtractNotes, settings: Settings, storage: Storage, rep
         if end <= start:
             raise video.PermanentError("End time must be greater than start time")
 
+        if command.layout == "synthesia":
+            return _extract_synthesia(command, source, work, start, end, storage, report)
+
         fragments = extraction.extract(
             source,
             command.crop,
@@ -79,3 +82,58 @@ def run_extract(command: ExtractNotes, settings: Settings, storage: Storage, rep
         pdf_key = f"pdf/{command.job_id}.pdf"
         storage.upload_file(output, pdf_key, "application/pdf")
         return ExtractionCompleted(job_id=command.job_id, pdf_key=pdf_key, page_count=len(pages))
+
+
+def _extract_synthesia(
+    command: ExtractNotes,
+    source: Path,
+    work: Path,
+    start: float,
+    end: float,
+    storage: Storage,
+    report: Report,
+) -> ExtractionCompleted:
+    transcription = synthesia.transcribe(
+        source,
+        command.crop,
+        start,
+        end,
+        _scaled(report, "extracting", 10, 90),
+    )
+    if not transcription.notes:
+        raise video.PermanentError("No notes were played on the detected keyboard")
+
+    report("rendering", 80)
+    score = notation.build_notation(
+        transcription.notes,
+        title=command.title,
+        bpm=command.tempo,
+        beats=command.beats_per_bar,
+    )
+    midi_path = work / "notes.mid"
+    midi.save_midi(transcription.notes, midi_path, bpm=score.grid.bpm, origin=score.start_seconds)
+    xml_path = work / "notes.musicxml"
+    notation.write_musicxml(score, xml_path)
+    pdf_path = work / "notes.pdf"
+    page_count = engraving.render_pdf(xml_path, pdf_path)
+
+    report("uploading", 95)
+    keys = {
+        "midi": f"midi/{command.job_id}.mid",
+        "xml": f"musicxml/{command.job_id}.musicxml",
+        "pdf": f"pdf/{command.job_id}.pdf",
+    }
+    storage.upload_file(midi_path, keys["midi"], "audio/midi")
+    storage.upload_file(xml_path, keys["xml"], "application/vnd.recordare.musicxml+xml")
+    storage.upload_file(pdf_path, keys["pdf"], "application/pdf")
+    return ExtractionCompleted(
+        job_id=command.job_id,
+        pdf_key=keys["pdf"],
+        page_count=page_count,
+        midi_key=keys["midi"],
+        note_count=len(transcription.notes),
+        music_xml_key=keys["xml"],
+        tempo=round(score.grid.bpm, 1),
+        time_signature=score.meter.name,
+        key_name=score.key_name,
+    )

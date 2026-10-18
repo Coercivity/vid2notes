@@ -37,6 +37,9 @@ class ExtractNotes(Message):
     layout: str
     start_seconds: float | None = None
     end_seconds: float | None = None
+    title: str | None = None
+    tempo: float | None = None
+    beats_per_bar: int | None = None
 
 
 class JobProgress(Message):
@@ -59,8 +62,14 @@ class AnalysisCompleted(Message):
 
 class ExtractionCompleted(Message):
     job_id: str
-    pdf_key: str
-    page_count: int
+    pdf_key: str | None = None
+    page_count: int | None = None
+    midi_key: str | None = None
+    note_count: int | None = None
+    music_xml_key: str | None = None
+    tempo: float | None = None
+    time_signature: str | None = None
+    key_name: str | None = None
 
 
 class JobFailed(Message):

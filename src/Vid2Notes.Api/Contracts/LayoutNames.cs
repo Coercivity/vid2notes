@@ -4,8 +4,17 @@ namespace Vid2Notes.Api.Contracts;
 
 public static class LayoutNames
 {
-    public static SheetLayout Parse(string value) =>
-        string.Equals(value, "scroll", StringComparison.OrdinalIgnoreCase) ? SheetLayout.Scroll : SheetLayout.Pages;
+    public static SheetLayout Parse(string value) => value.ToLowerInvariant() switch
+    {
+        "scroll" => SheetLayout.Scroll,
+        "synthesia" => SheetLayout.Synthesia,
+        _ => SheetLayout.Pages
+    };
 
-    public static string ToName(SheetLayout layout) => layout == SheetLayout.Scroll ? "scroll" : "pages";
+    public static string ToName(SheetLayout layout) => layout switch
+    {
+        SheetLayout.Scroll => "scroll",
+        SheetLayout.Synthesia => "synthesia",
+        _ => "pages"
+    };
 }

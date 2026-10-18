@@ -22,7 +22,7 @@ Client ──HTTP──► Vid2Notes.Api (ASP.NET 8) ──► PostgreSQL
 
 ## Two-phase processing
 
-1. `POST /jobs` → the worker downloads the video, detects the staves, suggests a crop area (`suggestedCrop`) and a video type (`suggestedLayout`: `pages` or `scroll`), and saves preview frames. Status becomes `awaitingCrop`.
+1. `POST /jobs` → the worker downloads the video, detects the staves, suggests a crop area (`suggestedCrop`) and a video type (`suggestedLayout`: `pages`, `scroll` or `synthesia`), and saves preview frames. Status becomes `awaitingCrop`.
 2. The user reviews the previews (`GET /jobs/{id}/previews/{n}`) and confirms or adjusts the area.
 3. `POST /jobs/{id}/extract` → the worker builds the PDF. Status becomes `completed`, and the file is available at `GET /jobs/{id}/pdf`.
 
@@ -32,6 +32,10 @@ Statuses: `analyzing → awaitingCrop → extracting → completed | failed`. Ex
 
 - **pages**: the music changes page by page or line by line. Stable segments are kept, the cursor and highlights are removed with a per-pixel median across frames, duplicates are dropped, and pages that fill in gradually replace their earlier version.
 - **scroll**: the music scrolls horizontally. The shift between frames is found with phase correlation, the strip is stitched together and cut into lines where there is the least "ink".
+
+- **synthesia**: falling notes over a piano keyboard. Both rendered Synthesia videos and overlays on a filmed piano are supported. The keyboard is located by its black-key pattern using a locally adaptive brightness threshold, which gives every key's position and pitch (88, 76, 61 and 49 key layouts are recognised; other sizes are centred on middle C). The bottom edge of the falling area is found above any decorative strip (felt, glowing line, metal bar). Every frame is sampled in two ways: key highlight colour and bar cores on probe lines just above that edge. Keys are used when their highlights agree with arriving bars; otherwise notes are read from the bars, whose lanes are fitted to the keyboard (scale, shift and per pitch-class offsets) from all detected bars. Repeated notes are split on gaps between bars, shadows and twins on neighbouring lanes are removed, and note colours are clustered into left and right hands.
+
+  The notes are then turned into notation: the tempo and grid (sixteenths or triplets) are fitted to the onsets, the bar length and downbeat come from bass and accent positions, durations are quantised and slightly legato-normalised, and the key is estimated with Krumhansl-Schmuckler profiles. music21 builds a two-staff score (right hand / left hand), Verovio engraves it and CairoSVG produces the PDF. Tempo and beats per bar can be overridden in the extract request (`tempo`, `beatsPerBar`). Outputs: PDF, MIDI (`GET /jobs/{id}/midi`) and MusicXML (`GET /jobs/{id}/musicxml`) for editing in MuseScore.
 
 ## Running
 

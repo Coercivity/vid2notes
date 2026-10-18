@@ -9,6 +9,9 @@ namespace Vid2Notes.Api.Endpoints;
 
 public static class JobEndpoints
 {
+    private const double MinTempo = 20;
+    private const double MaxTempo = 300;
+
     public static void MapJobEndpoints(this IEndpointRouteBuilder app)
     {
         var jobs = app.MapGroup("/jobs").WithTags("Jobs");
@@ -18,6 +21,8 @@ public static class JobEndpoints
         jobs.MapPost("/{id:guid}/extract", StartExtraction);
         jobs.MapGet("/{id:guid}/previews/{index:int}", GetPreview);
         jobs.MapGet("/{id:guid}/pdf", GetPdf);
+        jobs.MapGet("/{id:guid}/midi", GetMidi);
+        jobs.MapGet("/{id:guid}/musicxml", GetMusicXml);
     }
 
     private static async Task<IResult> CreateJob(
@@ -73,7 +78,7 @@ public static class JobEndpoints
         var crop = request.Crop is null
             ? job.SuggestedCrop?.Copy()
             : request.Crop.ToRegion();
-        var errors = Validate(crop, request.StartSeconds, request.EndSeconds);
+        var errors = Validate(crop, request);
         if (errors.Count > 0)
             return Results.ValidationProblem(errors);
 
@@ -83,6 +88,12 @@ public static class JobEndpoints
         job.EndSeconds = request.EndSeconds;
         job.PdfKey = null;
         job.PageCount = null;
+        job.MidiKey = null;
+        job.NoteCount = null;
+        job.MusicXmlKey = null;
+        job.Tempo = null;
+        job.TimeSignature = null;
+        job.KeyName = null;
         job.Error = null;
         job.SetStatus(JobStatus.Extracting, "queued");
 
@@ -94,7 +105,10 @@ public static class JobEndpoints
                 crop!.ToMessage(),
                 LayoutNames.ToName(job.Layout.Value),
                 job.StartSeconds,
-                job.EndSeconds),
+                job.EndSeconds,
+                job.Title,
+                request.Tempo,
+                request.BeatsPerBar),
             cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
@@ -124,21 +138,68 @@ public static class JobEndpoints
     {
         var job = await db.Jobs.AsNoTracking()
             .Where(j => j.Id == id)
-            .Select(j => new { j.PdfKey, j.Title })
+            .Select(j => new { Key = j.PdfKey, j.Title })
             .FirstOrDefaultAsync(cancellationToken);
-        if (job?.PdfKey is null)
+        return await Download(id, job?.Key, job?.Title, "pdf", "application/pdf", storage, cancellationToken);
+    }
+
+    private static async Task<IResult> GetMidi(
+        Guid id,
+        AppDbContext db,
+        ObjectStorage storage,
+        CancellationToken cancellationToken)
+    {
+        var job = await db.Jobs.AsNoTracking()
+            .Where(j => j.Id == id)
+            .Select(j => new { Key = j.MidiKey, j.Title })
+            .FirstOrDefaultAsync(cancellationToken);
+        return await Download(id, job?.Key, job?.Title, "mid", "audio/midi", storage, cancellationToken);
+    }
+
+    private static async Task<IResult> GetMusicXml(
+        Guid id,
+        AppDbContext db,
+        ObjectStorage storage,
+        CancellationToken cancellationToken)
+    {
+        var job = await db.Jobs.AsNoTracking()
+            .Where(j => j.Id == id)
+            .Select(j => new { Key = j.MusicXmlKey, j.Title })
+            .FirstOrDefaultAsync(cancellationToken);
+        return await Download(
+            id,
+            job?.Key,
+            job?.Title,
+            "musicxml",
+            "application/vnd.recordare.musicxml+xml",
+            storage,
+            cancellationToken);
+    }
+
+    private static async Task<IResult> Download(
+        Guid id,
+        string? key,
+        string? title,
+        string extension,
+        string contentType,
+        ObjectStorage storage,
+        CancellationToken cancellationToken)
+    {
+        if (key is null)
             return Results.NotFound();
 
-        var stored = await storage.OpenAsync(job.PdfKey, cancellationToken);
+        var stored = await storage.OpenAsync(key, cancellationToken);
         if (stored is null)
             return Results.NotFound();
 
-        var fileName = $"{SanitizeFileName(job.Title) ?? id.ToString()}.pdf";
-        return Results.Stream(stored.Content, "application/pdf", fileName);
+        var fileName = $"{SanitizeFileName(title) ?? id.ToString()}.{extension}";
+        return Results.Stream(stored.Content, contentType, fileName);
     }
 
-    private static Dictionary<string, string[]> Validate(CropRegion? crop, double? start, double? end)
+    private static Dictionary<string, string[]> Validate(CropRegion? crop, ExtractRequest request)
     {
+        var start = request.StartSeconds;
+        var end = request.EndSeconds;
         var errors = new Dictionary<string, string[]>();
         if (crop is null)
         {
@@ -154,6 +215,10 @@ public static class JobEndpoints
             errors["startSeconds"] = ["Must be non-negative"];
         if (start is not null && end is not null && end <= start)
             errors["endSeconds"] = ["Must be greater than startSeconds"];
+        if (request.Tempo is < MinTempo or > MaxTempo)
+            errors["tempo"] = [$"Must be between {MinTempo} and {MaxTempo} BPM"];
+        if (request.BeatsPerBar is < 2 or > 12)
+            errors["beatsPerBar"] = ["Must be between 2 and 12"];
         return errors;
     }
 

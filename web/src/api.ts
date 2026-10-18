@@ -1,5 +1,5 @@
 export type JobStatus = "analyzing" | "awaitingCrop" | "extracting" | "completed" | "failed";
-export type SheetLayout = "pages" | "scroll";
+export type SheetLayout = "pages" | "scroll" | "synthesia";
 
 export interface Crop {
   x: number;
@@ -27,6 +27,12 @@ export interface Job {
   endSeconds: number | null;
   pdfUrl: string | null;
   pageCount: number | null;
+  midiUrl: string | null;
+  noteCount: number | null;
+  musicXmlUrl: string | null;
+  tempo: number | null;
+  timeSignature: string | null;
+  keyName: string | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +43,8 @@ export interface ExtractOptions {
   layout: SheetLayout;
   startSeconds: number | null;
   endSeconds: number | null;
+  tempo: number | null;
+  beatsPerBar: number | null;
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {

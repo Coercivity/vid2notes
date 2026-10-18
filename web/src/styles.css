@@ -424,3 +424,23 @@ legend {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+.downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+select {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+fieldset small {
+  display: block;
+  margin-top: 8px;
+}

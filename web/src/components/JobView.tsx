@@ -3,6 +3,7 @@ import { rememberJob } from "../recent";
 import { formatTime } from "../time";
 import { isRunning, useJob } from "../useJob";
 import { ExtractPanel } from "./ExtractPanel";
+import { Downloads } from "./Downloads";
 import { ProgressBar } from "./ProgressBar";
 
 interface Props {
@@ -60,21 +61,14 @@ export function JobView({ id, onNew }: Props) {
 
         {job.status === "failed" && (
           <div className="notice notice-error">
-            <strong>Failed to {job.stage === "extract" ? "build the PDF" : "process the video"}.</strong>
+            <strong>
+              Failed to {job.stage === "extract" ? "build the sheet music" : "process the video"}.
+            </strong>
             <span>{job.error}</span>
           </div>
         )}
 
-        {job.status === "completed" && job.pdfUrl && (
-          <div className="notice notice-success">
-            <span>
-              PDF is ready: {job.pageCount} {job.pageCount === 1 ? "page" : "pages"}.
-            </span>
-            <a className="button primary" href={job.pdfUrl} download>
-              Download PDF
-            </a>
-          </div>
-        )}
+        {job.status === "completed" && <Downloads job={job} />}
 
         {error && <p className="error">{error}</p>}
       </section>

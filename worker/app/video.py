@@ -108,7 +108,7 @@ def sample_frames(
             ok, frame = cap.retrieve()
             if ok:
                 yield time, frame
-            while next_time <= time + 1e-6:
+            while step_seconds > 0 and next_time <= time + 1e-6:
                 next_time += step_seconds
     finally:
         cap.release()

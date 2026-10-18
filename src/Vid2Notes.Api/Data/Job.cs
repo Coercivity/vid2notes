@@ -21,6 +21,12 @@ public class Job
     public double? EndSeconds { get; set; }
     public string? PdfKey { get; set; }
     public int? PageCount { get; set; }
+    public string? MidiKey { get; set; }
+    public int? NoteCount { get; set; }
+    public string? MusicXmlKey { get; set; }
+    public double? Tempo { get; set; }
+    public string? TimeSignature { get; set; }
+    public string? KeyName { get; set; }
     public string? Error { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
